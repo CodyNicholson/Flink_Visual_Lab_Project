@@ -1,0 +1,8 @@
+node_modules/
+dist/
+target/
+.idea/
+.vscode/
+*.iml
+claude_logs/
+

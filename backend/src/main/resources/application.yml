@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/flinkdb}
+    username: ${SPRING_DATASOURCE_USERNAME:flinkuser}
+    password: ${SPRING_DATASOURCE_PASSWORD:flinkpassword}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  mvc:
+    async:
+      request-timeout: -1
+
+flink:
+  shared-dir: ${FLINK_SHARED_DIR:/data/flink-fs}
+  web-ui-port: ${FLINK_WEB_UI_PORT:8082}
+
+logging:
+  level:
+    org.apache.flink: WARN
+    org.apache.kafka: WARN
+    com.example.flinklab: INFO
