@@ -17,6 +17,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.RestartStrategyOptions;
+import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.connector.file.src.FileSource;
 import org.apache.flink.connector.file.src.reader.TextLineInputFormat;
 import org.apache.flink.connector.kafka.source.KafkaSource;
@@ -98,6 +99,9 @@ public class FlinkPipelineService {
         Configuration conf = new Configuration();
         conf.set(RestOptions.PORT, webUiPort);
         conf.set(RestOptions.BIND_ADDRESS, "0.0.0.0");
+        // The dashboard is reachable through the public site, so keep it read-only
+        conf.set(WebOptions.SUBMIT_ENABLE, false);
+        conf.set(WebOptions.CANCEL_ENABLE, false);
         conf.set(CheckpointingOptions.CHECKPOINT_STORAGE, "filesystem");
         conf.set(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointDir.toURI().toString());
         conf.set(RestartStrategyOptions.RESTART_STRATEGY, "fixed-delay");

@@ -75,6 +75,8 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
+        web.submit.enable: false
+        web.cancel.enable: false
     volumes:
       - flink-shared-fs:/data/flink-fs
 
@@ -115,18 +117,31 @@ services:
       kafka-init:
         condition: service_completed_successfully
 
+  # Production build served by nginx on :80. The container name and tunnel-net match the
+  # Cloudflare tunnel route (http://rixus-frontend:80), so pipeline-run.sh can publish it.
   frontend:
-    build: ./frontend
-    container_name: flink-react-frontend
+    build:
+      context: ./frontend
+      args:
+        # Dashboards are proxied by the frontend's nginx, so relative links work on localhost and the tunnel
+        VITE_FLINK_EMBEDDED_UI_URL: /flink-job/
+        VITE_FLINK_CLUSTER_UI_URL: /flink-cluster/
+    container_name: rixus-frontend
     ports:
-      - "${FRONTEND_HOST_PORT:-3000}:3000"
-    environment:
-      # Vite dev server proxies /api (REST + SSE) to the backend over the compose network
-      API_PROXY_TARGET: http://backend:8080
-      VITE_FLINK_EMBEDDED_UI_URL: http://localhost:${FLINK_EMBEDDED_UI_HOST_PORT:-8082}
-      VITE_FLINK_CLUSTER_UI_URL: http://localhost:${FLINK_CLUSTER_HOST_PORT:-8081}
+      - "${FRONTEND_HOST_PORT:-3000}:80"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - default
+      - tunnel-net
     depends_on:
       - backend
+      - flink-jobmanager
 
 volumes:
   flink-shared-fs:
+
+networks:
+  tunnel-net:
+    external: true

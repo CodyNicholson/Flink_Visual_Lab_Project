@@ -13,9 +13,9 @@ docker compose up --build
 
 | URL | What |
 | --- | --- |
-| http://localhost:3000 | React visualizer |
-| http://localhost:8082 | Flink dashboard of the lab job (embedded MiniCluster) |
-| http://localhost:8081 | Standalone Flink cluster UI (idle; for exploring the UI) |
+| http://localhost:3000 | React visualizer (minified build served by nginx, which proxies `/api`) |
+| http://localhost:8082 (also `/flink-job/` on the frontend) | Flink dashboard of the lab job (embedded MiniCluster, read-only) |
+| http://localhost:8081 (also `/flink-cluster/` on the frontend) | Standalone Flink cluster UI (idle; for exploring the UI, read-only) |
 | http://localhost:8080/api/flink/state | Backend state endpoint |
 
 If a host port is already taken, override it, for example:
@@ -23,6 +23,17 @@ If a host port is already taken, override it, for example:
 ```bash
 FRONTEND_HOST_PORT=3100 BACKEND_HOST_PORT=8090 KAFKA_HOST_PORT=9192 docker compose up --build
 ```
+
+For hot reload, run `npm run dev` in `frontend/` (Vite proxies `/api` to `http://localhost:8080`).
+
+### Deploying through the Cloudflare tunnel
+
+`./pipeline-run.sh` pulls the latest code, removes **all** Docker containers on the host, starts
+the Cloudflare tunnel (needs `TUNNEL_TOKEN` set globally, e.g. in `/etc/environment`), and runs
+`docker compose up -d --build`. The frontend container is named `rixus-frontend` on the
+`tunnel-net` network to match the tunnel's route. The frontend's nginx also serves both Flink
+dashboards at `/flink-job/` and `/flink-cluster/`, so they work through the tunnel. Job submit and
+cancel are disabled in both dashboards because they're publicly reachable.
 
 Other overrides: `POSTGRES_HOST_PORT`, `FLINK_CLUSTER_HOST_PORT`, `FLINK_EMBEDDED_UI_HOST_PORT`.
 
