@@ -26,16 +26,22 @@ FRONTEND_HOST_PORT=3100 BACKEND_HOST_PORT=8090 KAFKA_HOST_PORT=9192 docker compo
 
 For hot reload, run `npm run dev` in `frontend/` (Vite proxies `/api` to `http://localhost:8080`).
 
-### Deploying through the Cloudflare tunnel
-
-`./pipeline-run.sh` pulls the latest code, removes **all** Docker containers on the host, starts
-the Cloudflare tunnel (needs `TUNNEL_TOKEN` set globally, e.g. in `/etc/environment`), and runs
-`docker compose up -d --build`. The frontend container is named `rixus-frontend` on the
-`tunnel-net` network to match the tunnel's route. The frontend's nginx also serves both Flink
-dashboards at `/flink-job/` and `/flink-cluster/`, so they work through the tunnel. Job submit and
-cancel are disabled in both dashboards because they're publicly reachable.
-
 Other overrides: `POSTGRES_HOST_PORT`, `FLINK_CLUSTER_HOST_PORT`, `FLINK_EMBEDDED_UI_HOST_PORT`.
+
+## Security
+
+- Host ports are bound to `127.0.0.1` only. Docker publishes ports through its own iptables rules,
+  which bypass host firewalls such as `ufw`, so a bare `3000:80` would be reachable from outside.
+- `POSTGRES_PASSWORD` has no fallback: compose refuses to start until it is set in `.env`.
+- Postgres, Kafka and the Flink cluster sit on `backend-net` with the backend; the public nginx
+  container only reaches the backend and the read-only jobmanager UI.
+- nginx also serves both Flink dashboards at `/flink-job/` and `/flink-cluster/`. They are
+  read-only from outside: nginx allows only GET there, and job submit and cancel are disabled.
+- nginx runs unprivileged (uid 101) with all capabilities dropped, `no-new-privileges`, and memory,
+  CPU and process limits; the other containers have `no-new-privileges` and memory and process limits.
+- Every response carries `Content-Security-Policy` (same-origin only, no framing),
+  `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`
+  (`frontend/security-headers.conf`); the nginx version is hidden.
 
 ## Scenarios
 

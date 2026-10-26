@@ -5,7 +5,8 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/flinkdb}
     username: ${SPRING_DATASOURCE_USERNAME:flinkuser}
-    password: ${SPRING_DATASOURCE_PASSWORD:flinkpassword}
+    # No usable default: docker compose passes it from POSTGRES_PASSWORD in .env
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:

@@ -20,7 +20,6 @@ import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/flink")
-@CrossOrigin(origins = "*")
 public class FlinkLabController {
 
     private static final String ORDERS_TOPIC = "flink-orders-topic";
