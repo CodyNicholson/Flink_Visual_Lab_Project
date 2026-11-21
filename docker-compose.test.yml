@@ -1,0 +1,35 @@
+# Isolated test stack:
+#   docker compose -p flink-visual-lab-test -f docker-compose.yml -f docker-compose.test.yml up -d --build
+# Renames every container, drops all host ports except the UI on 127.0.0.1:3900 and keeps
+# the frontend off the external network, so it never clashes with the live app.
+# Every service with a container_name in docker-compose.yml needs an entry here.
+services:
+  postgres:
+    container_name: flink-lab-test-postgres
+    ports: !reset []
+
+  kafka:
+    container_name: flink-lab-test-kafka
+    ports: !reset []
+
+  kafka-init:
+    container_name: flink-lab-test-kafka-init
+
+  flink-jobmanager:
+    container_name: flink-lab-test-jobmanager
+    ports: !reset []
+
+  flink-taskmanager:
+    container_name: flink-lab-test-taskmanager
+
+  backend:
+    container_name: flink-lab-test-backend
+    ports: !reset []
+
+  frontend:
+    container_name: flink-lab-test-frontend
+    ports: !override
+      - "127.0.0.1:3900:80"
+    restart: "no"
+    networks: !override
+      - default

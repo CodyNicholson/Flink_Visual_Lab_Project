@@ -9,34 +9,34 @@ const KAFKA_SOURCE_TYPES = ['KAFKA', 'JDBC_ENRICH', 'WATERMARK_CHECKPOINT'];
 
 const LESSONS = {
   KAFKA: {
-    title: '1. Apache Kafka Source Connector (Event-Time Stream Ingestion)',
+    title: '1. Kafka source connector: event-time ingestion',
     howItWorks: 'Clicking this button publishes an order event into the Kafka topic "flink-orders-topic". Flink\'s KafkaSource consumes the partition split, assigns an Event-Time Watermark, routes the event by keyBy(customerId) into Keyed ValueState, and writes the enriched aggregate to the Postgres & FileSystem Sinks.'
   },
   POSTGRES_CDC: {
-    title: '2. PostgreSQL Change Data Capture (WAL Logical Replication Stream)',
+    title: '2. PostgreSQL change data capture from the WAL',
     howItWorks: 'Clicking this button executes a direct SQL UPDATE on PostgreSQL\'s "customers_cdc_source" table. Flink does NOT poll the database: its CDC source reads the PostgreSQL Write-Ahead Log (wal_level=logical) through a replication slot in real time. Because the table uses REPLICA IDENTITY FULL, the UPDATE arrives as a "-U" (retract old row) followed by a "+U" (new row) changelog pair, and the "+U" immediately updates Flink\'s Customer Tier ValueState.'
   },
   FILESYSTEM: {
-    title: '3. Local File System Source & Sink (Continuous Split Monitor)',
+    title: '3. Local filesystem source and sink (continuous monitoring)',
     howItWorks: 'Clicking this button writes a new ".jsonl" micro-batch file directly into the shared Docker volume "/data/flink-fs/inbox". Flink\'s FileSource (configured with monitorContinuously every 1s) discovers the new file as a split, streams the record through the stateful pipeline, and appends the output to "/data/flink-fs/outbox".'
   },
   JDBC_ENRICH: {
-    title: '4. Stateful Stream-Table Join & PostgreSQL Upsert Sink',
+    title: '4. Stateful stream-table join and PostgreSQL upsert sink',
     howItWorks: 'Demonstrates joining high-velocity stream events against relational database state inside Flink\'s KeyedCoProcessFunction. Flink enriches the incoming payment with the customer\'s live CDC tier and cumulative spend state, then executes an idempotent INSERT ... ON CONFLICT DO UPDATE upsert into PostgreSQL\'s "enriched_orders_sink" table.'
   },
   WATERMARK_CHECKPOINT: {
-    title: '5. Out-of-Order Event-Time Watermarks & Chandy-Lamport Checkpointing',
+    title: '5. Late events, watermarks and checkpoints',
     howItWorks: 'Injects an event with a timestamp backdated by 60 seconds. The operator\'s watermark (max event time - 2s, and never more than 10s behind the wall clock) is already past that timestamp, so Flink flags the record LATE_OUT_OF_ORDER. Every 10s a checkpoint barrier flows through the DAG and the keyed ValueState is snapshotted to /data/flink-fs/checkpoints; watch the checkpoint badge.'
   }
 };
 
 const SCENARIOS = [
-  { key: 'KAFKA', cls: 'btn-kafka', label: '1. Emit Kafka Stream Event (CUST-101 +$250)', endpoint: '/trigger/kafka?customerId=CUST-101&amount=250.00' },
-  { key: 'POSTGRES_CDC', cls: 'btn-cdc', label: '2A. Postgres CDC: Upgrade CUST-101 to VIP_DIAMOND', endpoint: '/trigger/postgres-cdc?customerId=CUST-101&newTier=VIP_DIAMOND' },
-  { key: 'POSTGRES_CDC', cls: 'btn-cdc-alt', label: '2B. Postgres CDC: Upgrade CUST-202 to PLATINUM', endpoint: '/trigger/postgres-cdc?customerId=CUST-202&newTier=PLATINUM' },
-  { key: 'FILESYSTEM', cls: 'btn-file', label: '3. Drop File into Local FileSystem (/inbox)', endpoint: '/trigger/filesystem?customerId=CUST-202&amount=480.50' },
-  { key: 'JDBC_ENRICH', cls: 'btn-jdbc', label: '4. Stateful Join & Postgres JDBC Upsert Sink', endpoint: '/trigger/postgres-jdbc?customerId=CUST-101&amount=920.00' },
-  { key: 'WATERMARK_CHECKPOINT', cls: 'btn-late', label: '5. Send Out-of-Order Late Event (Watermark Test)', endpoint: '/trigger/late-watermark?customerId=CUST-202&amount=99.99' }
+  { key: 'KAFKA', cls: 'btn-kafka', label: '1. Send a Kafka event (CUST-101, +$250)', endpoint: '/trigger/kafka?customerId=CUST-101&amount=250.00' },
+  { key: 'POSTGRES_CDC', cls: 'btn-cdc', label: '2A. CDC: upgrade CUST-101 to VIP_DIAMOND', endpoint: '/trigger/postgres-cdc?customerId=CUST-101&newTier=VIP_DIAMOND' },
+  { key: 'POSTGRES_CDC', cls: 'btn-cdc-alt', label: '2B. CDC: upgrade CUST-202 to PLATINUM', endpoint: '/trigger/postgres-cdc?customerId=CUST-202&newTier=PLATINUM' },
+  { key: 'FILESYSTEM', cls: 'btn-file', label: '3. Drop a file into /inbox', endpoint: '/trigger/filesystem?customerId=CUST-202&amount=480.50' },
+  { key: 'JDBC_ENRICH', cls: 'btn-jdbc', label: '4. Join with state and upsert to Postgres', endpoint: '/trigger/postgres-jdbc?customerId=CUST-101&amount=920.00' },
+  { key: 'WATERMARK_CHECKPOINT', cls: 'btn-late', label: '5. Send a late, out-of-order event', endpoint: '/trigger/late-watermark?customerId=CUST-202&amount=99.99' }
 ];
 
 export default function App() {
@@ -114,21 +114,21 @@ export default function App() {
     <div className="flink-lab">
       <header className="top-bar">
         <div>
-          <h1>Apache Flink Stateful Stream & Multi-Connector Visual Lab</h1>
-          <p>Spring Boot 3 + Flink 1.19 + Kafka + Postgres WAL CDC + Local FileSystem</p>
+          <h1>Apache Flink stateful streaming</h1>
+          <p>Flink 1.19 with Kafka, Postgres CDC and filesystem connectors, driven from Spring Boot 3</p>
         </div>
         <div className="header-badges">
           <span className={`badge ${connected ? 'badge-green' : 'badge-red'}`}>
             {connected ? 'SSE telemetry: live' : 'SSE telemetry: connecting…'}
           </span>
           <span className={`badge badge-green ${checkpointFlash ? 'badge-flash' : ''}`}>
-            Checkpointing: 10s (Exactly-Once){lastCheckpoint ? ` · last ${lastCheckpoint.eventId}` : ''}
+            Checkpoint every 10 s, exactly-once{lastCheckpoint ? ` · last ${lastCheckpoint.eventId}` : ''}
           </span>
           <a href={FLINK_JOB_UI} target="_blank" rel="noreferrer" className="badge badge-link">
-            Lab Job Dashboard
+            Lab job dashboard
           </a>
           <a href={FLINK_CLUSTER_UI} target="_blank" rel="noreferrer" className="badge badge-link">
-            Standalone Cluster UI
+            Standalone cluster UI
           </a>
         </div>
       </header>
@@ -149,8 +149,8 @@ export default function App() {
         <div className="explanation-header">
           <h3>{lesson.title}</h3>
           {activeEvent && (
-            <span className="live-pill">
-              Active Packet: <strong>{activeEvent.eventId}</strong> | Changelog: <code>{activeEvent.changelogOp}</code> | Stage: <code>{activeEvent.operatorStage}</code>
+            <span className="live-pill" aria-live="polite">
+              In flight: <strong>{activeEvent.eventId}</strong> · changelog <code>{activeEvent.changelogOp}</code> · stage <code>{activeEvent.operatorStage}</code>
             </span>
           )}
         </div>
@@ -161,40 +161,40 @@ export default function App() {
       <section className="dag-canvas">
         {/* Column 1: Data Sources */}
         <div className="dag-column">
-          <div className="column-label">1. External Data Sources</div>
+          <div className="column-label">1. Sources</div>
 
           <div className={`dag-node ${ingesting(KAFKA_SOURCE_TYPES) ? 'node-pulse-blue' : ''}`}>
-            <div className="node-title">Apache Kafka Source</div>
+            <div className="node-title">Kafka source</div>
             <div className="node-meta">Topic: <code>flink-orders-topic</code> (3 partitions)</div>
           </div>
 
           <div className={`dag-node ${activeStage === 'CDC_SYNC' ? 'node-pulse-purple' : ''}`}>
-            <div className="node-title">Postgres WAL CDC Connector</div>
+            <div className="node-title">Postgres WAL CDC connector</div>
             <div className="node-meta">Slot: <code>flink_cdc_lab_slot (test_decoding)</code></div>
           </div>
 
           <div className={`dag-node ${ingesting(['FILESYSTEM']) ? 'node-pulse-amber' : ''}`}>
-            <div className="node-title">Local FileSystem Source</div>
+            <div className="node-title">Local filesystem source</div>
             <div className="node-meta">Dir: <code>/data/flink-fs/inbox</code> ({dbState.inboxFileCount} files)</div>
           </div>
         </div>
 
         <div className={`dag-connector ${activeStage === 'SOURCE_INGEST' || activeStage === 'CDC_SYNC' ? 'connector-active' : ''}`}>
-          <span>Source Split</span>
+          <span>source split</span>
           <div className="connector-line" />
         </div>
 
         {/* Column 2: Event-Time Watermarks & Changelog Stream */}
         <div className="dag-column">
-          <div className="column-label">2. Event-Time & Changelog</div>
+          <div className="column-label">2. Event time and changelog</div>
           <div className={`dag-node tall-node ${
             activeStage === 'WATERMARK_ASSIGN' ? (isLate ? 'node-pulse-red' : 'node-pulse-cyan')
               : activeStage === 'CDC_SYNC' ? 'node-pulse-cyan' : ''
           }`}>
-            <div className="node-title">Watermark & Changelog Operator</div>
+            <div className="node-title">Watermark and changelog operator</div>
             <div className="node-meta">BoundedOutOfOrderness (2s)</div>
             <div className="operator-detail">
-              <div>Changelog Mode: <code>+I, -U, +U, -D</code></div>
+              <div>Changelog mode: <code>+I, -U, +U, -D</code></div>
               <div>Status: <code className={isLate ? 'late-text' : ''}>{activeEvent?.watermarkInfo || 'IDLE'}</code></div>
             </div>
           </div>
@@ -207,36 +207,36 @@ export default function App() {
 
         {/* Column 3: Stateful CoProcess Operator */}
         <div className="dag-column">
-          <div className="column-label">3. Flink Managed Keyed State</div>
+          <div className="column-label">3. Managed keyed state</div>
           <div className={`dag-node tall-node ${
             activeStage === 'KEYED_STATE_JOIN' || activeStage === 'CDC_SYNC' ? 'node-pulse-green'
               : checkpointFlash ? 'node-pulse-checkpoint' : ''
           }`}>
             <div className="node-title">KeyedCoProcessFunction</div>
-            <div className="node-meta">Fault-Tolerant ValueState Backend</div>
+            <div className="node-meta">Fault-tolerant ValueState backend</div>
             <div className="operator-detail">
-              <div>Customer Key: <code>{activeEvent?.customerId || '—'}</code></div>
-              <div>Joined Tier: <code>{activeEvent?.customerTier || '—'}</code></div>
-              <div>Running Total: <code>${activeEvent ? Number(activeEvent.runningTotal).toFixed(2) : '0.00'}</code></div>
-              <div>Last Snapshot: <code>{lastCheckpoint ? lastCheckpoint.eventId : 'pending'}</code></div>
+              <div>Customer key: <code>{activeEvent?.customerId || '—'}</code></div>
+              <div>Joined tier: <code>{activeEvent?.customerTier || '—'}</code></div>
+              <div>Running total: <code>${activeEvent ? Number(activeEvent.runningTotal).toFixed(2) : '0.00'}</code></div>
+              <div>Last snapshot: <code>{lastCheckpoint ? lastCheckpoint.eventId : 'pending'}</code></div>
             </div>
           </div>
         </div>
 
         <div className={`dag-connector ${activeStage === 'SINK_COMMIT' ? 'connector-active' : ''}`}>
-          <span>Sink Writer</span>
+          <span>sink writer</span>
           <div className="connector-line" />
         </div>
 
         {/* Column 4: Multi-Target Sinks */}
         <div className="dag-column">
-          <div className="column-label">4. Flink Sinks</div>
+          <div className="column-label">4. Sinks</div>
           <div className={`dag-node ${activeStage === 'SINK_COMMIT' ? 'node-pulse-emerald' : ''}`}>
-            <div className="node-title">PostgreSQL Upsert Sink</div>
+            <div className="node-title">PostgreSQL upsert sink</div>
             <div className="node-meta">Table: <code>enriched_orders_sink</code></div>
           </div>
           <div className={`dag-node ${activeStage === 'SINK_COMMIT' ? 'node-pulse-emerald' : ''}`}>
-            <div className="node-title">FileSystem Outbox Sink</div>
+            <div className="node-title">Filesystem outbox sink</div>
             <div className="node-meta">File: <code>/outbox/flink-processed-sink.jsonl</code> ({dbState.outboxLineCount} lines)</div>
           </div>
         </div>
@@ -245,15 +245,15 @@ export default function App() {
       {/* Live Database & Sink Inspector Panels */}
       <section className="tables-grid">
         <div className="panel-card">
-          <h4>PostgreSQL Source Table: <code>customers_cdc_source</code> (Monitored by Flink WAL CDC)</h4>
+          <h4>Source table <code>customers_cdc_source</code>, watched by CDC</h4>
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Customer ID</th>
+                  <th>Customer</th>
                   <th>Name</th>
-                  <th>Live Tier (CDC)</th>
-                  <th>Credit Limit</th>
+                  <th>Live tier (CDC)</th>
+                  <th>Credit limit</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,24 +271,24 @@ export default function App() {
         </div>
 
         <div className="panel-card">
-          <h4>PostgreSQL Sink Table: <code>enriched_orders_sink</code> (Written by Flink Sink)</h4>
+          <h4>Sink table <code>enriched_orders_sink</code>, written by Flink</h4>
           <div className="table-scroll">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Order ID</th>
+                  <th>Order</th>
                   <th>Source</th>
                   <th>Customer</th>
                   <th>Amount</th>
-                  <th>Joined Tier</th>
-                  <th>Running State Total</th>
+                  <th>Joined tier</th>
+                  <th>Running total (state)</th>
                   <th>Watermark</th>
                 </tr>
               </thead>
               <tbody>
                 {dbState.enrichedSinkTable.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="empty-cell">Click any button above to stream events through Flink...</td>
+                    <td colSpan="7" className="empty-cell">No rows yet. Send an event above to stream it through Flink.</td>
                   </tr>
                 ) : (
                   dbState.enrichedSinkTable.map((row) => (
@@ -311,10 +311,10 @@ export default function App() {
 
       {/* Real-time Flink Operator Telemetry Stream */}
       <section className="panel-card">
-        <h4>Real-Time Apache Flink Operator Telemetry Log (SSE)</h4>
+        <h4>Live operator telemetry (SSE)</h4>
         <div className="telemetry-feed">
           {logs.length === 0 ? (
-            <div className="empty-cell">Waiting for stream events...</div>
+            <div className="empty-cell">Waiting for stream events…</div>
           ) : (
             logs.map((item) => (
               <div key={`${item.eventId}-${item.operatorStage}-${item.changelogOp}-${item.timestamp}`} className={`telemetry-row stage-${item.operatorStage}`}>
